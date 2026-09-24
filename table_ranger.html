@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Table Ranger</title>
+<style>
+  :root{
+    --blue:#1677ff; --dark:#0d2b52; --light:#eef6ff; --line:#cfe2ff;
+    --muted:#63748a; --white:#fff; --good:#16a36a; --bad:#e34b4b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:linear-gradient(135deg,#f8fcff,#eaf4ff); color:var(--dark);
+  }
+  header{
+    background:#fff; border-bottom:1px solid var(--line); padding:18px 28px;
+    display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10;
+  }
+  .brand{display:flex;gap:12px;align-items:center;font-weight:800;font-size:23px}
+  .logo{width:42px;height:42px;border-radius:12px;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:22px}
+  .progress{font-size:13px;color:var(--muted)}
+  main{max-width:1100px;margin:32px auto;padding:0 20px 110px}
+  .hero{text-align:center;margin-bottom:25px}
+  h1{font-size:42px;margin:0 0 8px}
+  .hero p{color:var(--muted);margin:0}
+  .step{display:none;background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:0 12px 35px rgba(31,104,180,.08)}
+  .step.active{display:block}
+  h2{margin-top:0;font-size:27px}
+  .hint{background:var(--light);padding:13px 15px;border-radius:13px;color:#31547c;margin:15px 0 20px}
+  .draw-area{display:grid;grid-template-columns:1fr 300px;gap:24px}
+  .grid{
+    display:grid;grid-template-columns:repeat(10,1fr);gap:7px;background:#f4f9ff;
+    padding:15px;border:1px solid var(--line);border-radius:18px;max-width:650px;
+  }
+  .cell{
+    aspect-ratio:1;border:2px dashed #b9d5f7;border-radius:9px;background:#fff;cursor:pointer;
+    transition:.12s;min-height:42px;
+  }
+  .cell:hover{border-color:var(--blue);transform:scale(1.03)}
+  .cell.selected{background:#9dccff;border:2px solid var(--blue);box-shadow:inset 0 0 0 5px #dff0ff}
+  .preview{background:#f8fbff;border:1px solid var(--line);border-radius:18px;padding:18px}
+  .preview h3{margin:0 0 8px}
+  .count{font-size:34px;font-weight:800;color:var(--blue)}
+  .table-preview{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:16px}
+  .mini{aspect-ratio:1;border-radius:5px;background:#e5eef9}.mini.on{background:var(--blue)}
+  .controls{display:flex;justify-content:space-between;gap:12px;margin-top:22px}
+  button{
+    border:0;border-radius:12px;padding:12px 18px;font-weight:750;cursor:pointer;font-size:15px;
+  }
+  .primary{background:var(--blue);color:#fff}.primary:hover{background:#0967e8}
+  .secondary{background:#edf5ff;color:#174b7d}
+  .danger{background:#fff0f0;color:#b52d2d}
+  .disabled{opacity:.45;pointer-events:none}
+  .names{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:470px;overflow:auto;padding-right:4px}
+  input,select{
+    width:100%;padding:12px 13px;border:1px solid #c9d9ea;border-radius:11px;
+    font:inherit;outline:none;background:#fff;
+  }
+  input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px #dcecff}
+  .name-row{display:flex;gap:8px}.num{width:42px;text-align:center;background:#f1f6fb;border:0;color:#63748a}
+  .pair-box{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:center}
+  .pairs{display:grid;gap:9px}
+  .pair{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center}
+  .remove{padding:9px 11px}
+  .summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .pill{background:var(--light);border:1px solid var(--line);padding:8px 12px;border-radius:999px;color:#31547c}
+  #result{overflow:auto}
+  .seat-table{border-collapse:separate;border-spacing:8px;margin:auto}
+  .seat-table td{min-width:105px;height:68px;border-radius:13px;text-align:center;font-weight:750;background:#eaf4ff;border:2px solid #a8cdf7}
+  .seat-table td.empty{background:transparent;border:0}
+  .seat-table td.name{background:#fff;border-color:#75b1f5;box-shadow:0 4px 12px rgba(22,119,255,.10)}
+  .legend{font-size:13px;color:var(--muted);text-align:center;margin-top:15px}
+  .magic{
+    position:fixed;right:24px;bottom:22px;background:var(--blue);color:#fff;
+    border-radius:999px;padding:16px 23px;box-shadow:0 10px 25px rgba(22,119,255,.32);
+    font-size:16px;z-index:20;
+  }
+  .magic:hover{transform:translateY(-2px)}
+  .error{color:var(--bad);background:#fff2f2;border:1px solid #ffd0d0;border-radius:11px;padding:11px;margin-top:12px;display:none}
+  @media(max-width:800px){
+    .draw-area{grid-template-columns:1fr}.names{grid-template-columns:1fr}
+    h1{font-size:32px}.step{padding:20px}.grid{gap:5px;padding:10px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">✦</div>Table Ranger</div>
+  <div class="progress" id="progress">Step 1 of 3</div>
+<button id="newTabBtn" onclick="window.open(window.location.href, '_blank')" style="position:fixed;left:18px;bottom:22px;z-index:30;background:#fff;color:#1677ff;border:1px solid #cfe2ff;padding:11px 15px;border-radius:12px;font-weight:750;cursor:pointer;box-shadow:0 8px 20px rgba(31,104,180,.12)">↗ Open in new tab</button></header>
+
+<main>
+  <div class="hero">
+    <h1>Plan the perfect seating chart.</h1>
+    <p>Draw your tables, add your students, set seating rules, then let Table Ranger do the arranging.</p>
+  </div>
+
+  <section class="step active" id="step1">
+    <h2>1. Draw your table</h2>
+    <div class="hint">Click the squares to draw the seats/table shape you want. Blue squares are seats. You can make one large table or several separate groups.</div>
+    <div class="draw-area">
+      <div>
+        <div class="grid" id="grid"></div>
+        <div class="controls">
+          <button class="secondary" onclick="clearGrid()">Clear drawing</button>
+          <button class="primary" onclick="goStep(2)">Next: Add names →</button>
+        </div>
+        <div class="error" id="gridError">Please draw at least one seat first.</div>
+      </div>
+      <div class="preview">
+        <h3>Seats drawn</h3>
+        <div class="count" id="seatCount">0</div>
+        <div>students can be placed</div>
+        <div class="table-preview" id="miniGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="step" id="step2">
+    <h2>2. Add the students</h2>
+    <div class="hint">Enter one name per box. The number of names should match the number of seats you drew.</div>
+    <div class="names" id="names"></div>
+    <div class="controls">
+      <button class="secondary" onclick="goStep(1)">← Back</button>
+      <button class="primary" onclick="goStep(3)">Next: Seating rules →</button>
+    </div>
+    <div class="error" id="nameError">Please fill every name box.</div>
+  </section>
+
+  <section class="step" id="step3">
+    <h2>3. Who should NOT sit together?</h2>
+    <div class="hint">Add pairs of students who should not be next to each other. You can leave this blank if there are no restrictions.</div>
+    <div class="pairs" id="pairs"></div>
+    <button class="secondary" style="margin-top:14px" onclick="addPair()">＋ Add a pair</button>
+    <div class="controls">
+      <button class="secondary" onclick="goStep(2)">← Back</button>
+      <button class="primary" onclick="generate()">Generate seating ✨</button>
+    </div>
+    <div class="error" id="pairError">Please check the seating rules.</div>
+  </section>
+
+  <section class="step" id="resultStep">
+    <h2>Your seating chart</h2>
+    <div class="summary" id="summary"></div>
+    <div id="result"></div>
+    <div class="controls">
+      <button class="secondary" onclick="goStep(3)">← Change rules</button>
+      <button class="primary" onclick="generate()">🔄 Generate another</button>
+    </div>
+  </section>
+</main>
+
+<button class="magic" id="magic" onclick="magicClick()">General ✨</button>
+
+<script>
+const ROWS=10, COLS=10;
+let selected=new Set(), currentStep=1, lastArrangement=null;
+
+const grid=document.getElementById('grid');
+for(let r=0;r<ROWS;r++){
+  for(let c=0;c<COLS;c++){
+    const d=document.createElement('div');
+    d.className='cell'; d.dataset.r=r; d.dataset.c=c;
+    d.onclick=()=>{const k=r+'-'+c; selected.has(k)?selected.delete(k):selected.add(k); updateGrid()};
+    grid.appendChild(d);
+  }
+}
+function updateGrid(){
+  document.querySelectorAll('.cell').forEach(d=>d.classList.toggle('selected',selected.has(d.dataset.r+'-'+d.dataset.c)));
+  document.getElementById('seatCount').textContent=selected.size;
+  const mini=document.getElementById('miniGrid'); mini.innerHTML='';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const d=document.createElement('div'); d.className='mini'+(selected.has(r+'-'+c)?' on':''); mini.appendChild(d);
+  }
+}
+function clearGrid(){selected.clear();updateGrid()}
+function goStep(n){
+  if(n===2 && selected.size===0){document.getElementById('gridError').style.display='block';return}
+  if(n===2) buildNames();
+  if(n===3 && !validateNames()) return;
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step'+n).classList.add('active');
+  currentStep=n; document.getElementById('progress').textContent='Step '+n+' of 3';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function buildNames(){
+  const box=document.getElementById('names'); 
+  if(box.children.length===selected.size)return;
+  box.innerHTML='';
+  for(let i=0;i<selected.size;i++){
+    const row=document.createElement('div');row.className='name-row';
+    row.innerHTML='<input class="num" value="'+(i+1)+'" disabled><input class="student" placeholder="Student '+(i+1)+'">';
+    box.appendChild(row);
+  }
+}
+function validateNames(){
+  const vals=[...document.querySelectorAll('.student')].map(x=>x.value.trim());
+  const ok=vals.length===selected.size && vals.every(Boolean) && new Set(vals.map(x=>x.toLowerCase())).size===vals.length;
+  document.getElementById('nameError').style.display=ok?'none':'block';
+  return ok;
+}
+function addPair(){
+  const box=document.getElementById('pairs');
+  const row=document.createElement('div');row.className='pair';
+  const opts=[...document.querySelectorAll('.student')].map(x=>x.value.trim()).filter(Boolean);
+  row.innerHTML='<select class="a"><option value="">Student A</option>'+opts.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select>'+
+               '<select class="b"><option value="">Student B</option>'+opts.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select>'+
+               '<button class="danger remove" onclick="this.parentElement.remove()">✕</button>';
+  box.appendChild(row);
+}
+function esc(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+function neighbors(a,b){
+  return Math.max(Math.abs(a.r-b.r),Math.abs(a.c-b.c))===1;
+}
+function getSeats(){
+  return [...selected].map(k=>{const [r,c]=k.split('-').map(Number);return {r,c,k}});
+}
+function generate(){
+  if(!validateNames()){goStep(2);return}
+  const names=[...document.querySelectorAll('.student')].map(x=>x.value.trim());
+  const restrictions=[];
+  document.querySelectorAll('.pair').forEach(row=>{
+    const a=row.querySelector('.a').value,b=row.querySelector('.b').value;
+    if(a&&b&&a!==b) restrictions.push([a,b]);
+  });
+  const bad=new Set(restrictions.flatMap(([a,b])=>[a+'|'+b,b+'|'+a]));
+  const seats=getSeats();
+
+  // Try many shuffled arrangements with a backtracking fallback.
+  let solution=null;
+  for(let attempt=0;attempt<700 && !solution;attempt++){
+    const shuffled=[...names].sort(()=>Math.random()-.5);
+    const arr=Array(seats.length);
+    const remaining=[...shuffled];
+    function solve(pos){
+      if(pos===seats.length)return true;
+      const candidates=[...remaining].sort(()=>Math.random()-.5);
+      for(const name of candidates){
+        let ok=true;
+        for(let j=0;j<pos;j++){
+          if(neighbors(seats[pos],seats[j]) && bad.has(name+'|'+arr[j])){ok=false;break}
+        }
+        if(ok){
+          arr[pos]=name; remaining.splice(remaining.indexOf(name),1);
+          if(solve(pos+1))return true;
+          remaining.push(name); arr[pos]=null;
+        }
+      }
+      return false;
+    }
+    if(solve(0))solution=arr;
+  }
+
+  if(!solution){
+    document.getElementById('pairError').textContent='I could not find a seating arrangement that satisfies every rule. Try removing one restriction or changing the table shape.';
+    document.getElementById('pairError').style.display='block';return;
+  }
+  document.getElementById('pairError').style.display='none';
+  lastArrangement=solution;
+  renderResult(seats,solution,restrictions);
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('resultStep').classList.add('active');
+  document.getElementById('progress').textContent='Finished ✨';
+  document.getElementById('magic').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderResult(seats,arr,restrictions){
+  const map=new Map(seats.map((s,i)=>[s.k,arr[i]]));
+  let minR=Math.min(...seats.map(s=>s.r)),maxR=Math.max(...seats.map(s=>s.r));
+  let minC=Math.min(...seats.map(s=>s.c)),maxC=Math.max(...seats.map(s=>s.c));
+  let out='<table class="seat-table">';
+  for(let r=minR;r<=maxR;r++){
+    out+='<tr>';
+    for(let c=minC;c<=maxC;c++){
+      const k=r+'-'+c;
+      out+=map.has(k)?'<td class="name">'+esc(map.get(k))+'</td>':'<td class="empty"></td>';
+    }
+    out+='</tr>';
+  }
+  out+='</table><div class="legend">Blue outlined boxes are seats. Students next to each other were checked against your “do not sit together” rules.</div>';
+  document.getElementById('result').innerHTML=out;
+  document.getElementById('summary').innerHTML='<div class="pill">👥 '+arr.length+' students</div><div class="pill">🚫 '+restrictions.length+' seating rules</div><div class="pill">✓ Rules checked</div>';
+}
+function magicClick(){
+  if(currentStep===1) goStep(2);
+  else if(currentStep===2) goStep(3);
+  else generate();
+}
+updateGrid();
+</script>
+</body>
+</html>
